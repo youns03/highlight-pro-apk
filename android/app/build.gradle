@@ -1,0 +1,39 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.youns03.highlightpro"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.youns03.highlightpro"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    def deployedAppUrl = project.findProperty("appUrl") ?: "https://REPLACE_WITH_YOUR_DEPLOYED_APP_URL"
+
+    buildTypes.each {
+        it.buildConfigField "String", "APP_URL", "\"${deployedAppUrl}\""
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation "androidx.activity:activity:1.10.1"
+    implementation "androidx.webkit:webkit:1.12.1"
+}

@@ -282,6 +282,30 @@ function decodeHtmlEntities(str: string): string {
     .trim();
 }
 
+function isFragmentedTranslation(source: string, candidate: string): boolean {
+  const sourceWords = source.trim().split(/\s+/).filter(Boolean).length;
+  const candidateWords = candidate.trim().split(/\s+/).filter(Boolean).length;
+  if (sourceWords < 6) return false;
+  return candidateWords < Math.max(3, Math.floor(sourceWords * 0.35));
+}
+
+async function translateWithGemini(source: string, from: string, to: string): Promise<string | null> {
+  if (!process.env.GEMINI_API_KEY || !source.trim()) return null;
+  try {
+    const ai = getGenAI();
+    const prompt = `Translate the following text faithfully from ${from} to ${to}. Preserve the complete meaning, all named concepts, negations, relationships, and sentence structure. Return only the fluent translation, with no explanation, no word list, and no grammatical analysis.\n\nText:\n${source}`;
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: { parts: [{ text: prompt }] }
+    });
+    const translated = (response.text || '').trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
+    if (translated && !isFragmentedTranslation(source, translated)) return translated;
+  } catch (error) {
+    console.warn('Gemini contextual translation fallback failed:', error);
+  }
+  return null;
+}
+
 // Endpoint: Context-Aware Professional Neural Translation (French <-> Arabic & English <-> French)
 app.post('/api/translate', async (req, res) => {
   try {
@@ -306,7 +330,7 @@ app.post('/api/translate', async (req, res) => {
           const data: any = await resp.json();
           if (data?.responseData?.translatedText) {
             let candidate = decodeHtmlEntities(data.responseData.translatedText);
-            if (candidate && !candidate.toUpperCase().includes('MYMEMORY WARNING') && candidate.length > 0) {
+            if (candidate && !candidate.toUpperCase().includes('MYMEMORY WARNING') && candidate.length > 0 && !isFragmentedTranslation(cleanInput, candidate)) {
               translationCacheMap.set(cacheKey, candidate);
               return candidate;
             }
@@ -324,14 +348,23 @@ app.post('/api/translate', async (req, res) => {
           const lData: any = await lResp.json();
           if (lData?.translation) {
             const resText = decodeHtmlEntities(lData.translation);
-            translationCacheMap.set(cacheKey, resText);
-            return resText;
+            if (!isFragmentedTranslation(cleanInput, resText)) {
+              translationCacheMap.set(cacheKey, resText);
+              return resText;
+            }
           }
         }
       } catch (lErr) {
         // Fallback
       }
 
+      const contextualTranslation = await translateWithGemini(cleanInput, from, to);
+      if (contextualTranslation) {
+        translationCacheMap.set(cacheKey, contextualTranslation);
+        return contextualTranslation;
+      }
+
+      // Never display a misleading list of isolated dictionary fragments for a long sentence.
       return cleanInput;
     };
 

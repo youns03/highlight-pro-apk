@@ -346,6 +346,14 @@ export const FRENCH_ARABIC_DICTIONARY: Record<string, string> = {
   "combien": "كم"
 };
 
+/** Reject a result that is suspiciously shorter than a long source sentence. */
+function isFragmentedTranslation(source: string, candidate: string): boolean {
+  const sourceWords = source.trim().split(/\s+/).filter(Boolean).length;
+  const candidateWords = candidate.trim().split(/\s+/).filter(Boolean).length;
+  if (sourceWords < 6) return false;
+  return candidateWords < Math.max(3, Math.floor(sourceWords * 0.35));
+}
+
 /**
  * Translate a French sentence into fluent, contextual, professional Arabic.
  * Queries the backend neural translation API with in-memory caching, falling back to phrasebook & dictionary.
@@ -385,7 +393,7 @@ export async function translateFrenchSentenceToArabicAsync(frenchSentence: strin
       if (data && data.translation && typeof data.translation === 'string') {
         const arabicResult = data.translation.trim();
         // Validate that translation is not just an error echo
-        if (arabicResult && arabicResult.length > 0) {
+          if (arabicResult && arabicResult.length > 0 && arabicResult !== clean && !isFragmentedTranslation(clean, arabicResult)) {
           translationCache.set(normalized, arabicResult);
           return arabicResult;
         }
@@ -449,11 +457,14 @@ export async function translateFrenchSentencesBatchAsync(frenchSentences: string
             const trans = (data.translations[k] || '').trim();
             const originalText = frenchSentences[originalIndex] || '';
 
-            if (trans && trans.length > 0 && trans !== originalText) {
+            if (trans && trans.length > 0 && trans !== originalText && !isFragmentedTranslation(originalText, trans)) {
               translationCache.set(originalText.trim().toLowerCase(), trans);
               results[originalIndex] = trans;
             } else {
-              results[originalIndex] = translateFrenchSentenceToArabic(originalText);
+              // Do not replace a failed long-sentence translation with isolated dictionary fragments.
+              results[originalIndex] = originalText.trim().split(/\s+/).length < 6
+                ? translateFrenchSentenceToArabic(originalText)
+                : '';
             }
           }
         }
@@ -463,10 +474,13 @@ export async function translateFrenchSentencesBatchAsync(frenchSentences: string
     }
   }
 
-  // 3. Fill any missing items with offline dictionary
+  // 3. Fill only short missing items locally; long sentences must never show lexical fragments.
   for (let i = 0; i < results.length; i++) {
     if (!results[i]) {
-      results[i] = translateFrenchSentenceToArabic(frenchSentences[i] || '');
+      const source = frenchSentences[i] || '';
+      results[i] = source.trim().split(/\s+/).length < 6
+        ? translateFrenchSentenceToArabic(source)
+        : '';
     }
   }
 
@@ -488,8 +502,10 @@ export function translateFrenchSentenceToArabic(frenchSentence: string): string 
     return FRENCH_ARABIC_PHRASEBOOK[withPunct];
   }
 
-  // Clean offline word-by-word mapping
+  // Word glossing is safe only for short phrases. For long sentences it creates
+  // misleading fragments such as "بدون من إلى في و" instead of a real translation.
   const words = frenchSentence.trim().split(/\s+/);
+  if (words.length >= 6) return '';
   const arabicWords: string[] = [];
 
   for (const rawWord of words) {

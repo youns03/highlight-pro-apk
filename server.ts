@@ -330,7 +330,7 @@ app.post('/api/translate', async (req, res) => {
           const data: any = await resp.json();
           if (data?.responseData?.translatedText) {
             let candidate = decodeHtmlEntities(data.responseData.translatedText);
-            if (candidate && !candidate.toUpperCase().includes('MYMEMORY WARNING') && candidate.length > 0 && !isFragmentedTranslation(cleanInput, candidate)) {
+            if (candidate && !candidate.toUpperCase().includes('MYMEMORY WARNING') && candidate.length > 0 && candidate.toLowerCase() !== cleanInput.toLowerCase() && !isFragmentedTranslation(cleanInput, candidate)) {
               translationCacheMap.set(cacheKey, candidate);
               return candidate;
             }
@@ -348,7 +348,7 @@ app.post('/api/translate', async (req, res) => {
           const lData: any = await lResp.json();
           if (lData?.translation) {
             const resText = decodeHtmlEntities(lData.translation);
-            if (!isFragmentedTranslation(cleanInput, resText)) {
+            if (resText.toLowerCase() !== cleanInput.toLowerCase() && !isFragmentedTranslation(cleanInput, resText)) {
               translationCacheMap.set(cacheKey, resText);
               return resText;
             }

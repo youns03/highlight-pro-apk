@@ -409,7 +409,14 @@ export async function createFrenchLessonFromText(params: {
   for (let i = 0; i < totalSentences; i++) {
     const item = segmented[i];
     const synth = synthesisResults[i];
-    const arabic = arabicTranslations[i] || 'ترجمة فورية';
+    let arabic = arabicTranslations[i] || '';
+    if (!arabic) {
+      try {
+        arabic = await translateFrenchSentenceToArabicAsync(item.text);
+      } catch (translationError) {
+        console.warn(`Unable to translate sentence ${i + 1}:`, translationError);
+      }
+    }
 
     sentenceBuffers.push(synth.audioBuffer);
 

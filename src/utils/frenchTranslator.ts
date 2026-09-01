@@ -436,41 +436,45 @@ export async function translateFrenchSentencesBatchAsync(frenchSentences: string
     }
   }
 
-  // 2. Fetch all uncached sentences in one batch call
-  if (uncachedTexts.length > 0) {
-    try {
-      const response = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          texts: uncachedTexts,
-          from: 'fr',
-          to: 'ar'
-        })
-      });
+  // 2. Fetch in small sequential chunks with retries. Large parallel requests can
+  // trigger provider rate limits, which previously left later sentences untranslated.
+  const chunkSize = 4;
+  for (let start = 0; start < uncachedTexts.length; start += chunkSize) {
+    const chunkTexts = uncachedTexts.slice(start, start + chunkSize);
+    const chunkIndices = uncachedIndices.slice(start, start + chunkSize);
+    let data: any = null;
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data && Array.isArray(data.translations)) {
-          for (let k = 0; k < uncachedIndices.length; k++) {
-            const originalIndex = uncachedIndices[k];
-            const trans = (data.translations[k] || '').trim();
-            const originalText = frenchSentences[originalIndex] || '';
-
-            if (trans && trans.length > 0 && trans !== originalText && !isFragmentedTranslation(originalText, trans)) {
-              translationCache.set(originalText.trim().toLowerCase(), trans);
-              results[originalIndex] = trans;
-            } else {
-              // Do not replace a failed long-sentence translation with isolated dictionary fragments.
-              results[originalIndex] = originalText.trim().split(/\s+/).length < 6
-                ? translateFrenchSentenceToArabic(originalText)
-                : '';
-            }
-          }
+    for (let attempt = 0; attempt < 3 && !data; attempt++) {
+      try {
+        const response = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texts: chunkTexts, from: 'fr', to: 'ar' })
+        });
+        if (response.ok) {
+          const candidate = await response.json();
+          if (candidate && Array.isArray(candidate.translations)) data = candidate;
         }
+      } catch (e) {
+        if (attempt === 2) console.warn('Translation chunk failed after retries:', e);
       }
-    } catch (e) {
-      console.warn('Batch translation remote call failed, using offline fallback:', e);
+      if (!data && attempt < 2) await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+
+    for (let k = 0; k < chunkIndices.length; k++) {
+      const originalIndex = chunkIndices[k];
+      const originalText = frenchSentences[originalIndex] || '';
+      const trans = (data?.translations?.[k] || '').trim();
+
+      if (trans && trans !== originalText && !isFragmentedTranslation(originalText, trans)) {
+        translationCache.set(originalText.trim().toLowerCase(), trans);
+        results[originalIndex] = trans;
+      } else {
+        // Keep the UI free of misleading word-by-word fragments for long sentences.
+        results[originalIndex] = originalText.trim().split(/\s+/).length < 6
+          ? translateFrenchSentenceToArabic(originalText)
+          : '';
+      }
     }
   }
 

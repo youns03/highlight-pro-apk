@@ -295,7 +295,7 @@ async function translateWithGemini(source: string, from: string, to: string): Pr
     const ai = getGenAI();
     const prompt = `Translate the following text faithfully from ${from} to ${to}. Preserve the complete meaning, all named concepts, negations, relationships, and sentence structure. Return only the fluent translation, with no explanation, no word list, and no grammatical analysis.\n\nText:\n${source}`;
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: { parts: [{ text: prompt }] }
     });
     const translated = (response.text || '').trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/i, '').trim();
@@ -454,7 +454,7 @@ Ensure all JSON brackets and quotes are strictly valid. Return raw JSON only wit
     };
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: {
         parts: [audioPart, { text: prompt }]
       },

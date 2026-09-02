@@ -525,7 +525,7 @@ export function translateFrenchSentenceToArabic(frenchSentence: string): string 
     return arabicWords.join(' ');
   }
 
-  return 'ترجمة فورية للجملة التعليمية';
+  return '';
 }
 
 /**

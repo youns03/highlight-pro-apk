@@ -25,6 +25,12 @@ android {
         buildConfig true
     }
 
-    // The Android build now bundles the web application locally.
+    // The Android build bundles the web application locally.
     // No Render URL or external hosting URL is required to launch the app.
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.7.0"
+    implementation "androidx.activity:activity:1.10.1"
+    implementation "androidx.webkit:webkit:1.12.1"
 }

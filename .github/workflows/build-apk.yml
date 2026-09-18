@@ -33,16 +33,16 @@ jobs:
         with:
           packages: 'platforms;android-35 build-tools;35.0.0'
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22'
+          bun-version: latest
 
       - name: Install web dependencies
-        run: npm install
+        run: bun install --frozen-lockfile
 
       - name: Build web application
-        run: npm run build
+        run: bun run build
 
       - name: Bundle web application into Android assets
         run: |

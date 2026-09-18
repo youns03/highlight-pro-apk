@@ -5,7 +5,6 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -26,8 +25,11 @@ public class MainActivity extends ComponentActivity {
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.RECORD_AUDIO}, RECORD_AUDIO_REQUEST);
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.RECORD_AUDIO},
+                    RECORD_AUDIO_REQUEST
+            );
         }
 
         WebSettings settings = webView.getSettings();
@@ -40,12 +42,7 @@ public class MainActivity extends ComponentActivity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
 
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return false;
-            }
-        });
+        webView.setWebViewClient(new WebViewClient());
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -54,7 +51,8 @@ public class MainActivity extends ComponentActivity {
             }
         });
 
-        webView.loadUrl(BuildConfig.APP_URL);
+        // The web application is packaged inside the APK.
+        webView.loadUrl("file:///android_asset/web/index.html");
     }
 
     @Override

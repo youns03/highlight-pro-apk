@@ -1,15 +1,15 @@
-name: Build Android APK
+name: Build Standalone Android APK
 
 on:
   workflow_dispatch:
-    inputs:
-      app_url:
-        description: 'رابط التطبيق المنشور، مثل https://example.onrender.com'
-        required: true
-        type: string
   push:
     paths:
       - 'android/**'
+      - 'src/**'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'package.json'
+      - 'bun.lock'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -34,19 +34,36 @@ jobs:
       - name: Install Android SDK platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install web dependencies
+        run: npm install
+
+      - name: Build web application
+        run: npm run build
+
+      - name: Bundle web application into Android assets
+        run: |
+          rm -rf android/app/src/main/assets
+          mkdir -p android/app/src/main/assets/web
+          cp -R dist/. android/app/src/main/assets/web/
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10'
 
-      - name: Build debug APK
+      - name: Build standalone debug APK
         working-directory: android
-        env:
-          APP_URL: ${{ inputs.app_url || vars.APP_URL }}
-        run: gradle assembleDebug --no-daemon -PappUrl="${APP_URL}"
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: highlight-pro-debug-apk
+          name: highlight-pro-standalone-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

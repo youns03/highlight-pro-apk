@@ -1,60 +1,37 @@
-# Highlight Pro
+# Highlight Pro — Native Android
 
-A French-learning application with an Android build.
+The Android application is now a standalone native implementation. Its core path is:
 
-## Standalone / Offline-first Android APK
+```text
+Android Activity
+  -> native Canvas reader UI
+  -> asset-backed LessonRepository
+  -> SharedPreferences settings
+  -> NativeAudioEngine (MediaPlayer position callbacks)
+  -> Android TextToSpeech sentence fallback
+```
 
-The Android APK is a self-contained WebView application. The web frontend is compiled and bundled into the APK under Android assets.
+The legacy React/Vite source remains in the repository as a functional reference for future parity work, but it is not copied, built, or loaded by the Android module. The Android APK contains no HTML, JavaScript runtime, or browser wrapper.
 
-The APK **does not open or depend on Render at startup**. It can launch, display the bundled interface, browse bundled lessons, read their French/Arabic text, use local storage, and use locally available lesson audio without an internet connection.
+## Offline core
 
-The Android wrapper uses Android's `WebViewAssetLoader` instead of `file://`. Android recommends `WebViewAssetLoader` for bundled HTML/CSS/JavaScript and other in-app content because it provides a compatible HTTP(S) origin while keeping the content packaged locally. citeturn0search0
+All seven original bundled lessons are packaged in `android/app/src/main/assets/lessons.json`. The asset is generated from the original `src/utils/storage.ts` and preserves the source sentence and word-level timing records. The library, reader, Arabic translations, settings, navigation, and timing-based word highlighting work without network access.
 
-### What works offline
+## Audio and synchronization contract
 
-- App launch and the bundled interface.
-- The built-in French lessons and their Arabic translations.
-- Browsing and reading the bundled lesson library.
-- Search/filtering of locally available lessons.
-- User-created lessons saved in IndexedDB/local storage.
-- Imported local audio after it has been saved with a lesson.
-- Playback of audio already stored in a lesson.
-- Device/browser French speech synthesis where the Android WebView exposes a French voice.
+`NativeAudioEngine` uses `MediaPlayer.getCurrentPosition()` at a 25 ms callback cadence when an actual local audio URI is available. The reader uses the original sentence and word boundaries and therefore does not invent new timing data. The current repository does not contain audio files for the bundled lessons, so the APK does not claim synchronized playback for them. Android TextToSpeech is available as a sentence-level offline fallback and is explicitly reported as **not synchronized** with the stored timestamps. The original cloud neural TTS remains documented in the legacy web source as an optional online feature and is not a startup dependency of the native core.
 
-### What remains optional and online-dependent
+## Build and test
 
-Some creation/enrichment features still use external services when requested:
+```bash
+cd android
+gradle lint --no-daemon
+gradle test --no-daemon
+gradle assembleDebug --no-daemon
+```
 
-- Neural server TTS at `/api/tts`.
-- Batch TTS at `/api/tts/batch`.
-- Online translation services and Gemini contextual translation.
-- Gemini audio transcription.
-- Any future feature that explicitly downloads a remote model or calls an external API.
+The GitHub Actions workflow follows the same native-only sequence and uploads `app-debug.apk`.
 
-The important point is that these services are **not required to start the app or read the bundled lessons**.
+## Migration notes
 
-### True local AI is a separate step
-
-Removing Render makes the Android package independent of Render hosting. It does **not** make third-party neural models magically local.
-
-Fully offline neural TTS, high-quality offline translation, and offline AI transcription require their models and compatible runtimes to be bundled/downloaded locally. That is a substantially larger APK/model-engineering step. The app therefore follows an offline-first design: local learning content remains available, while optional online AI capabilities can be used when connectivity exists.
-
-## Build with GitHub Actions
-
-Use the **Build Standalone Android APK** workflow. It:
-
-1. installs the web dependencies;
-2. builds the web frontend;
-3. copies the generated frontend into Android assets;
-4. builds the Android APK;
-5. uploads the APK as a workflow artifact.
-
-The generated file is a normal installable Android APK. GitHub's artifact retention period controls only how long GitHub stores the downloadable build artifact; it does not impose an expiration date on an installed APK.
-
-## Run the web version
-
-`npm install`
-
-Set `GEMINI_API_KEY` if the server-side AI features are needed, then:
-
-`npm run dev`
+The browser-only IndexedDB, Web Audio, SpeechSynthesis, and Blob mechanisms are not used by Android. They remain in the legacy source because they are still used by the web build. Native Android uses packaged JSON for lesson data, `SharedPreferences` for settings, `MediaPlayer` for real local audio, and Android TTS for the explicitly non-synchronized fallback. Cloud translation, neural TTS, and Gemini transcription remain online-only features of the legacy web application and are not required for native startup or reading.

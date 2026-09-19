@@ -10,8 +10,8 @@ android {
         applicationId "com.youns03.highlightpro"
         minSdk 23
         targetSdk 35
-        versionCode 4
-        versionName "1.1.0"
+        versionCode 5
+        versionName "1.2.0"
     }
 
     buildTypes {
@@ -25,8 +25,8 @@ android {
         buildConfig true
     }
 
-    // The Android build bundles the web application locally.
-    // No Render URL or external hosting URL is required to launch the app.
+    // The Android build bundles the complete web application locally.
+    // No Render URL is required to launch or browse the bundled lessons.
 }
 
 dependencies {

@@ -12,7 +12,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import androidx.activity.ComponentActivity;
-import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.webkit.WebResourceErrorCompat;
@@ -25,49 +24,26 @@ public class MainActivity extends ComponentActivity {
 
     private static class LocalContentWebViewClient extends WebViewClientCompat {
         private final WebViewAssetLoader assetLoader;
-
-        LocalContentWebViewClient(WebViewAssetLoader assetLoader) {
-            this.assetLoader = assetLoader;
-        }
-
-        @Override
-        public WebResourceResponse shouldInterceptRequest(
-                WebView view,
-                WebResourceRequest request
-        ) {
+        LocalContentWebViewClient(WebViewAssetLoader assetLoader) { this.assetLoader = assetLoader; }
+        @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             return assetLoader.shouldInterceptRequest(request.getUrl());
         }
-
-        @Override
-        @SuppressWarnings("deprecation")
+        @Override @SuppressWarnings("deprecation")
         public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
             return assetLoader.shouldInterceptRequest(Uri.parse(url));
         }
-
-        @Override
-        public void onReceivedError(
-                WebView view,
-                WebResourceRequest request,
-                WebResourceErrorCompat error
-        ) {
+        @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceErrorCompat error) {
             super.onReceivedError(view, request, error);
         }
     }
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         webView = new WebView(this);
         setContentView(webView);
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                    this,
-                    new String[]{Manifest.permission.RECORD_AUDIO},
-                    RECORD_AUDIO_REQUEST
-            );
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, RECORD_AUDIO_REQUEST);
         }
 
         WebSettings settings = webView.getSettings();
@@ -82,25 +58,17 @@ public class MainActivity extends ComponentActivity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                .addPathHandler(
-                        "/assets/",
-                        new WebViewAssetLoader.AssetsPathHandler(this)
-                )
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
-
         webView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
 
         webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
+            @Override public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
-                    String[] requestedResources = request.getResources();
-                    for (String resource : requestedResources) {
+                    for (String resource : request.getResources()) {
                         if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)
-                                && ContextCompat.checkSelfPermission(
-                                        MainActivity.this,
-                                        Manifest.permission.RECORD_AUDIO
-                                ) == PackageManager.PERMISSION_GRANTED) {
+                                && ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.RECORD_AUDIO)
+                                == PackageManager.PERMISSION_GRANTED) {
                             request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
                             return;
                         }
@@ -110,22 +78,15 @@ public class MainActivity extends ComponentActivity {
             }
         });
 
-        // The complete web application is packaged inside the APK.
-        // WebViewAssetLoader gives it a stable HTTPS origin and keeps it usable offline.
-        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
+        webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
     }
 
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
+    @Override public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
     }
 
-    @Override
-    protected void onDestroy() {
+    @Override protected void onDestroy() {
         if (webView != null) {
             webView.stopLoading();
             webView.destroy();

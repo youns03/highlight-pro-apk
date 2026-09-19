@@ -25,12 +25,9 @@ android {
         buildConfig true
     }
 
-    // The Android build bundles the complete web application locally.
-    // No Render URL is required to launch or browse the bundled lessons.
+    // The Android module is self-contained; the legacy frontend is not part of this APK.
 }
 
 dependencies {
-    implementation "androidx.appcompat:appcompat:1.7.0"
-    implementation "androidx.activity:activity:1.10.1"
-    implementation "androidx.webkit:webkit:1.12.1"
+    testImplementation "junit:junit:4.13.2"
 }

@@ -95,3 +95,37 @@ Lint اكتمل بنجاح مع 9 تحذيرات غير مانعة، تشمل ت
 | Make Android CI native-only and document audio guarantees | `acbf09cd6fbbfe80c5a1501c134a926f97c146cf` |
 
 تم التحقق من أن Android لا يحتوي على مراجع `WebView`, `WebViewClient`, `WebChromeClient`, `WebViewAssetLoader`, `appassets.androidplatform.net`, `onrender.com` أو `render.yaml`.
+
+## المرحلة الثانية: مزامنة الصوت والتخزين
+
+تم استكمال مسار الحالة التالي داخل Native:
+
+```text
+Audio URI
+  -> NativeAudioEngine.load
+  -> MediaPlayer.getCurrentPosition() كل 25ms
+  -> NativeAudioEngine.Listener
+  -> MainActivity.time / playing
+  -> Reader إعادة الرسم
+  -> active sentence / active word
+```
+
+أصبح `NativeAudioEngine` يدعم `load`, `play`, `pause`, `stop`, `seek`, `setSpeed`, وcompletion callback. عند وجود ملف صوت محفوظ فعلياً، يعتمد التظليل على موضع `MediaPlayer` الحقيقي. وعند عدم وجود ملف صوت، يشغل زر القارئ كامل الدرس عبر Android TTS queue مع تحذير صريح بأنه غير متزامن مع word timings.
+
+أضيف `NativeLessonStore` لحفظ نسخة JSON من المشاريع والتوقيتات المعدلة داخل `filesDir/projects.json`، ونسخ ملفات الصوت إلى `filesDir/audio/<lessonId>.audio` وإعادتها إلى `MediaPlayer` عبر URI محلي. كما أضيف seek بالنقر على الجملة أو الكلمة، وتغيير سرعة التشغيل.
+
+## التحقق الآلي من البيانات
+
+تم تشغيل `tools/validate_native_lessons.py` بنجاح. قارَن التحقق المصدر الأصلي مع asset Native في IDs، النص الفرنسي، النص العربي، metadata، sentence boundaries، word IDs، وعدد الكلمات. النتيجة:
+
+```text
+Native parity OK: 7 lessons, 17 sentences, 158 words; metadata and text match.
+```
+
+اختبارات JVM الحالية: **4 tests, 0 failures, 0 errors**، وتشمل progress، active word، active sentence، boundary tolerance، وseek clamping.
+
+لا يزال اختبار MediaPlayer على جهاز/Emulator فعلي غير منفذ لأن البيئة لا تحتوي جهازاً متصلاً أو system image/emulator جاهزاً. لذلك ما زلت لا أصف مزامنة ملف صوت حقيقي بأنها مُختبرة ميدانياً، رغم أن مسار callback أصبح موصولاً فعلياً في الكود.
+
+## آخر APK
+
+بعد المرحلة الثانية أصبح حجم debug APK **2,415,373 bytes**. تم تنفيذ `lint test assembleDebug` بنجاح.

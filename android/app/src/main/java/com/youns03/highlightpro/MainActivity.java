@@ -2,24 +2,62 @@ package com.youns03.highlightpro;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
 import androidx.activity.ComponentActivity;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.webkit.WebResourceErrorCompat;
+import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewClientCompat;
 
 public class MainActivity extends ComponentActivity {
     private static final int RECORD_AUDIO_REQUEST = 1001;
     private WebView webView;
 
+    private static class LocalContentWebViewClient extends WebViewClientCompat {
+        private final WebViewAssetLoader assetLoader;
+
+        LocalContentWebViewClient(WebViewAssetLoader assetLoader) {
+            this.assetLoader = assetLoader;
+        }
+
+        @Override
+        public WebResourceResponse shouldInterceptRequest(
+                WebView view,
+                WebResourceRequest request
+        ) {
+            return assetLoader.shouldInterceptRequest(request.getUrl());
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+            return assetLoader.shouldInterceptRequest(Uri.parse(url));
+        }
+
+        @Override
+        public void onReceivedError(
+                WebView view,
+                WebResourceRequest request,
+                WebResourceErrorCompat error
+        ) {
+            super.onReceivedError(view, request, error);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         webView = new WebView(this);
         setContentView(webView);
 
@@ -37,22 +75,44 @@ public class MainActivity extends ComponentActivity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
+        settings.setAllowFileAccess(false);
+        settings.setAllowContentAccess(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
 
-        webView.setWebViewClient(new WebViewClient());
+        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler(
+                        "/assets/",
+                        new WebViewAssetLoader.AssetsPathHandler(this)
+                )
+                .build();
+
+        webView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
+                runOnUiThread(() -> {
+                    String[] requestedResources = request.getResources();
+                    for (String resource : requestedResources) {
+                        if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)
+                                && ContextCompat.checkSelfPermission(
+                                        MainActivity.this,
+                                        Manifest.permission.RECORD_AUDIO
+                                ) == PackageManager.PERMISSION_GRANTED) {
+                            request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                            return;
+                        }
+                    }
+                    request.deny();
+                });
             }
         });
 
-        // The web application is packaged inside the APK.
-        webView.loadUrl("file:///android_asset/web/index.html");
+        // The complete web application is packaged inside the APK.
+        // WebViewAssetLoader gives it a stable HTTPS origin and keeps it usable offline.
+        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
     }
 
     @Override
@@ -62,5 +122,15 @@ public class MainActivity extends ComponentActivity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.stopLoading();
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 }
